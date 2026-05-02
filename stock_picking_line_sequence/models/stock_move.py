@@ -32,3 +32,16 @@ class StockMove(models.Model):
         if not self.env.context.get("keep_line_sequence"):
             moves.picking_id._reset_sequence()
         return moves
+
+    def write(self, vals):
+        if "picking_id" in vals and vals["picking_id"]:
+            moves_without_picking = self.filtered(lambda m: not m.picking_id)
+        else:
+            moves_without_picking = self.browse()
+        res = super().write(vals)
+        if moves_without_picking and not self.env.context.get("keep_line_sequence"):
+            for move in moves_without_picking:
+                if move.picking_id:
+                    siblings = move.picking_id.move_ids_without_package - move
+                    move.sequence = max(siblings.mapped("sequence") or [0]) + 1
+        return res
